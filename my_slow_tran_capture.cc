@@ -207,7 +207,7 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
                 src[15] = '\0';
                 
                 // 打印Query的来源
-                printf(KRED "========= %s:%d =========\n" KRESET, src, rport);
+                printf(KRED "========= %s:%d =========" KGRN " Duration: %.3f\n" KRESET, src, rport, timediff * 0.001);
             } else {
                 break;
             }
