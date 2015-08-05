@@ -81,7 +81,6 @@ enum enum_server_command {
 };
 
 #define KNRM  "\x1B[0m"
-#define KGRAY  "\x1B[2;0m"
 #define KRED  "\x1B[31m"
 #define KGRN  "\x1B[32m"
 #define KYEL  "\x1B[33m"
@@ -138,9 +137,9 @@ void print_time(struct timeval tv) {
 
 void print_direction(bool direction) {
     if (direction == INBOUND) {
-        printf(KRED "IN  " KRESET);
+        printf(KRED " <== " KRESET);
     } else {
-        printf(KRED "OUT " KRESET);
+        printf(KRED " ==> " KRESET);
     }
 }
 
@@ -208,7 +207,7 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
                 src[15] = '\0';
                 
                 // 打印Query的来源
-                printf(KRED "=== %s:%d ===\n" KRESET, src, rport);
+                printf(KRED "========= %s:%d =========\n" KRESET, src, rport);
             } else {
                 break;
             }
@@ -216,16 +215,14 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
         if (do_print) {
             // 打印时间
             print_time(queries->tv);
-            printf(" ");
             print_direction(queries->direction);
             if (strlen(queries->query) < 20) {
                 // 如果Command太短，则直接输出
                 printf(queries->query);
                 printf("\n");
             } else {
-                printf("\n\n" KGRAY);
                 printf(queries->query);
-                printf("\n" KRESET);
+                printf(KGRN "\n-----\n" KRESET);
             }
             fflush(stdout);
         }
@@ -233,7 +230,7 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
     }
     
     if (do_print) {
-        printf("---\n");
+        printf("---------------------------------------\n");
     }
     
     delete_queue(orig);
