@@ -216,6 +216,8 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
             // 打印时间
             print_time(queries->tv);
             print_direction(queries->direction);
+            printf(KGRN "[%03d]" KRESET, queries->seq_id);
+
             if (strlen(queries->query) < 20) {
                 // 如果Command太短，则直接输出
                 printf(queries->query);
@@ -236,7 +238,7 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
 
 int outbound(struct tcphdr *tcp, struct timeval tv,
              struct in_addr raddr, uint16_t rport,
-             const unsigned char *packet, const int datalen) {
+             const unsigned char *packet, const int datalen, int seq_id) {
     uint64_t key = make_key(raddr, rport);
 
     unsigned char *p = (unsigned char *) packet;
@@ -312,7 +314,7 @@ bool is_end_tran(char *query, uint query_length) {
 
 
 void parse_query(uint64_t key, unsigned char *p, uint query_length,
-                 struct timeval tv, struct in_addr raddr, uint16_t rport) {
+                 struct timeval tv, struct in_addr raddr, uint16_t rport, int seq_id) {
     queries_t *t = (queries_t *) malloc(sizeof(queries_t));
     char *query = (char *) malloc(query_length + 1);
     memcpy(query, p, query_length);
@@ -320,6 +322,7 @@ void parse_query(uint64_t key, unsigned char *p, uint query_length,
     t->tv = tv;
     t->query = query;
     t->direction = INBOUND;
+    t->seq_id = seq_id;
     t->next = NULL;
 
     // 开始一个新的事务? 之前的trans会怎么样?
@@ -399,13 +402,13 @@ void parse_quit(uint64_t key, struct timeval tv, struct in_addr raddr,
 }
 
 
-void parse_command(uint64_t key, struct timeval tv, uint command) {
+void parse_command(uint64_t key, struct timeval tv, uint command, int seq_id) {
     std::tr1::unordered_map<uint64_t, queries_t *>::iterator it;
     it = trans.find(key);
     if (it != trans.end()) {
-        char buf[64];
+        char buf[70];
         queries_t *t = (queries_t *) malloc(sizeof(queries_t));
-        sprintf(buf, "CMD %s", command_name[command].str);
+        sprintf(buf, "CMD %s %d", command_name[command].str, seq_id);
         int length = strlen(buf);
         char *query = (char *) malloc(length + 1);
         memcpy(query, buf, length);
@@ -423,7 +426,7 @@ void parse_command(uint64_t key, struct timeval tv, uint command) {
 
 int inbound(struct tcphdr *tcp, struct timeval tv,
             struct in_addr raddr, uint16_t rport,
-            const unsigned char *packet, const int datalen) {
+            const unsigned char *packet, const int datalen, int seq_id) {
     
     // 如何将一个事务相关的东西统一起来呢?
     // 通过map将<radd, rport>的东西汇聚起来
@@ -434,14 +437,14 @@ int inbound(struct tcphdr *tcp, struct timeval tv,
     switch (command) {
         case COM_QUERY:
             p++;
-            parse_query(key, p, datalen - 5, tv, raddr, rport);
+            parse_query(key, p, datalen - 5, tv, raddr, rport, seq_id);
             break;
         case COM_QUIT:
             parse_quit(key, tv, raddr, rport);
             break;
         default:
             if (command <= COM_END)
-                parse_command(key, tv, command);
+                parse_command(key, tv, command, seq_id);
             break;
     }
     return 0;
@@ -452,6 +455,7 @@ int process_ip(pcap_t *dev, const struct ip *ip, struct timeval tv,
                const unsigned char *packet, const int packetlen) {
     bool incoming;
     unsigned len;
+    int seq_id;
     
     // 1. 根据IP协议中的路由信息，判断信息的流向
     if (is_local_address(ip->ip_src))
@@ -486,15 +490,20 @@ int process_ip(pcap_t *dev, const struct ip *ip, struct timeval tv,
                     parse_quit(make_key(ip->ip_dst, dport), tv, ip->ip_dst, dport);
                 return 0;
             }
-
+            
+            // payload_length(3字节) sequence_id(1字节)
             if (datalen <= 4)
                 return 0;
+            
+            
+            // 如何理解package呢?
+            seq_id = int(packet[4]);
             if (incoming) {
                 inbound(tcp, tv, ip->ip_src, sport,
-                        packet + (packetlen - datalen), datalen);
+                        packet + (packetlen - datalen), datalen, seq_id);
             } else {
                 outbound(tcp, tv, ip->ip_dst, dport,
-                         packet + (packetlen - datalen), datalen);
+                         packet + (packetlen - datalen), datalen, seq_id);
             }
             break;
 

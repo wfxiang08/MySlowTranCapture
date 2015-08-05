@@ -38,6 +38,7 @@ typedef struct queries_t{
   char* query;
   struct queries_t *next;
   struct queries_t *end;
+  int seq_id;
 } queries_t;
 
 
