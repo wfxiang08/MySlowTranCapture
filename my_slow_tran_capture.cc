@@ -88,7 +88,7 @@ enum enum_server_command {
 #define KMAG  "\x1B[35m"
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
-#define RESET "\033[0m"
+#define KRESET "\033[0m"
 
 const LEX_STRING command_name[] = {
         {C_STRING_WITH_LEN("Sleep")},
@@ -131,15 +131,15 @@ void print_time(struct timeval tv) {
     timer = tv.tv_sec;
     localtime_r(&timer, &t);
     // printf("%d/%02d/%02d %02d:%02d:%02d.%ld", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec, tv.tv_usec);
-    printf("%02d:%02d:%02d.%ld", t.tm_hour, t.tm_min, t.tm_sec, tv.tv_usec);
+    printf(KGRN "[%02d:%02d:%02d.%ld]" KRESET, t.tm_hour, t.tm_min, t.tm_sec, tv.tv_usec);
 }
 
 
 void print_direction(bool direction) {
     if (direction == INBOUND) {
-        printf(KGRN "->" RESET);
+        printf(KRED " IN " KRESET);
     } else {
-        printf(KRED "<-" RESET);
+        printf(KRED " OUT " KRESET);
     }
 }
 
@@ -207,7 +207,7 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
                 src[15] = '\0';
                 
                 // 打印Query的来源
-                printf("=== %s:%d ===\n", src, rport);
+                printf(KRED "=== %s:%d ===\n" KRESET, src, rport);
             } else {
                 break;
             }
@@ -230,7 +230,9 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
         }
         queries = queries->next;
     }
-    printf("---\n");
+    if (num_queries > 0) {
+        printf("---\n");
+    }
     
     delete_queue(orig);
     trans.erase(key);
