@@ -498,7 +498,7 @@ int process_ip(pcap_t *dev, const struct ip *ip, struct timeval tv,
             
             
             // 如何理解package呢?
-            seq_id = int(packet[4]);
+            seq_id = int(packet[3]);
             if (incoming) {
                 inbound(tcp, tv, ip->ip_src, sport,
                         packet + (packetlen - datalen), datalen, seq_id);
