@@ -137,7 +137,7 @@ void print_time(struct timeval tv) {
 
 void print_direction(bool direction) {
     if (direction == INBOUND) {
-        printf(KRED " <== " KRESET);
+        printf(KRED " <-- " KRESET);
     } else {
         printf(KRED " ==> " KRESET);
     }
@@ -324,15 +324,20 @@ void parse_query(uint64_t key, unsigned char *p, uint query_length,
 
     // 开始一个新的事务? 之前的trans会怎么样?
     if (is_begin_tran(query, query_length)) {
+        // 开始一个新事务? 那旧事务会怎么处理呢? 如果没有提交?
         std::tr1::unordered_map<uint64_t, queries_t *>::iterator it;
         it = trans.find(key);
         if (it != trans.end()) {
+            // 之前的事务被“新事务”结束了
             char *print_str = "TRAN_END BY ";
             int print_strlen = strlen(print_str);
             queries_t *queries = it->second;
+            
             queries_t *t2 = (queries_t *) malloc(sizeof(queries_t));
-            char *query2 = (char *) malloc(print_strlen + strlen(query) + 1);
-            sprintf(query2, "%s%s", print_str, query);
+            char *query2 = (char *) malloc(print_strlen + strlen(query) + 1 + strlen(KCYN) + strlen(KRESET));
+            
+            // 特殊的结束方式 需要警告
+            sprintf(query2, KCYN "%s%s" KRESET, print_str, query);
             t2->tv = tv;
             t2->query = query2;
             t2->direction = INBOUND;
@@ -343,6 +348,7 @@ void parse_query(uint64_t key, unsigned char *p, uint query_length,
         init_queue(t);
         trans[key] = t;
     } else if (is_end_tran(query, query_length)) {
+        // 主动调用
         std::tr1::unordered_map<uint64_t, queries_t *>::iterator it;
         it = trans.find(key);
         if (it != trans.end()) {
@@ -355,6 +361,7 @@ void parse_query(uint64_t key, unsigned char *p, uint query_length,
             free(t);
         }
     } else {
+        // 正常的请求:
         std::tr1::unordered_map<uint64_t, queries_t *>::iterator it;
         it = trans.find(key);
         if (it != trans.end()) {
@@ -633,8 +640,7 @@ int main(int argc, char **argv) {
 
     /* The -1 here stands for "infinity" */
     // 通过loop来不断监控数据
-    r = pcap_loop(pcap, (max_packets > 0) ? max_packets : -1, process_packet,
-                  (unsigned char *) pcap);
+    r = pcap_loop(pcap, (max_packets > 0) ? max_packets : -1, process_packet, (unsigned char *) pcap);
     if (r == -1) {
         fprintf(stderr, "pcap: %s\n", pcap_geterr(pcap));
         return -5;
