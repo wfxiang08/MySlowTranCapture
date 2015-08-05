@@ -282,6 +282,7 @@ int outbound(struct tcphdr *tcp, struct timeval tv,
         queries_t *t = (queries_t *) malloc(sizeof(queries_t));
         t->tv = tv;
         t->query = str;
+        t->seq_id = seq_id;
         t->direction = OUTBOUND;
         t->next = NULL;
         queries_t *queries = it->second;
@@ -406,9 +407,9 @@ void parse_command(uint64_t key, struct timeval tv, uint command, int seq_id) {
     std::tr1::unordered_map<uint64_t, queries_t *>::iterator it;
     it = trans.find(key);
     if (it != trans.end()) {
-        char buf[70];
+        char buf[72];
         queries_t *t = (queries_t *) malloc(sizeof(queries_t));
-        sprintf(buf, "CMD %s %d", command_name[command].str, seq_id);
+        sprintf(buf, "CMD %s [%03d]", command_name[command].str, seq_id);
         int length = strlen(buf);
         char *query = (char *) malloc(length + 1);
         memcpy(query, buf, length);
