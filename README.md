@@ -10,3 +10,10 @@ make && make install
 myslowtrancapture -i eth1
 
 ```
+
+## CentOS
+```bash
+yum install boost.x86_64  boost-devel.x86_64
+yum install libpcap-devel.x86_64 libpcap.x86_64
+
+```

@@ -34,6 +34,7 @@
 
 typedef struct queries_t{
   struct timeval tv;
+  struct queries_t *write;
   bool direction;
   char* query;
   struct queries_t *next;

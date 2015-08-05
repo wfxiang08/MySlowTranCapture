@@ -161,6 +161,11 @@ void init_queue(queries_t *queue) {
 void enqueue(queries_t *queue, queries_t *query) {
     queue->end->next = query;
     queue->end = query;
+    
+    // 如果出现了写操作，并且一直都没有提交
+    if (queue->write && SUB_MSEC(query->tv, queue->write->tv) > alert_millis) {
+        printf(KCYN "TRANS WARNING: \n" KRESET "%s\n\n", queue->write->query);
+    }
 }
 
 // 删除所有的queries
@@ -314,14 +319,20 @@ bool is_end_tran(char *query, uint query_length) {
 
 void parse_query(uint64_t key, unsigned char *p, uint query_length,
                  struct timeval tv, struct in_addr raddr, uint16_t rport) {
+    queries_t *write = NULL;
     queries_t *t = (queries_t *) malloc(sizeof(queries_t));
     char *query = (char *) malloc(query_length + 1);
     memcpy(query, p, query_length);
     query[query_length] = '\0';
     t->tv = tv;
+    t->write = NULL;
     t->query = query;
     t->direction = INBOUND;
     t->next = NULL;
+    
+    if (strcmp(query, "UPDATE") == 0 || strcmp(query, "INSERT") == 0 || strcmp(query, "DELETE") == 0) {
+        write = t;
+    }
 
     // 开始一个新的事务? 之前的trans会怎么样?
     if (is_begin_tran(query, query_length)) {
@@ -340,6 +351,7 @@ void parse_query(uint64_t key, unsigned char *p, uint query_length,
             // 特殊的结束方式 需要警告
             sprintf(query2, KCYN "%s%s" KRESET, print_str, query);
             t2->tv = tv;
+            t2->write = NULL;
             t2->query = query2;
             t2->direction = INBOUND;
             t2->next = NULL;
@@ -348,6 +360,8 @@ void parse_query(uint64_t key, unsigned char *p, uint query_length,
         }
         init_queue(t);
         trans[key] = t;
+        t->write = write;
+        
     } else if (is_end_tran(query, query_length)) {
         // 主动调用
         std::tr1::unordered_map<uint64_t, queries_t *>::iterator it;
@@ -369,10 +383,17 @@ void parse_query(uint64_t key, unsigned char *p, uint query_length,
             queries_t *queries = it->second;
             enqueue(queries, t);
             trans[key] = queries;
+            
+            // 记录本次Transaction中第一个写请求
+            if (queries->write == NULL) {
+                queries->write = write;
+            }
         } else {
             /* Guess that transactions start here. i.e. after SET AUTOCOMMIT=0*/
             init_queue(t);
             trans[key] = t;
+
+            t->write = write;
         }
     }
 }
@@ -389,6 +410,7 @@ void parse_quit(uint64_t key, struct timeval tv, struct in_addr raddr,
         char *query = (char *) malloc(quit_strlen + 1);
         sprintf(query, quit_str);
         t->tv = tv;
+        t->write = NULL;
         t->query = query;
         t->direction = INBOUND;
         t->next = NULL;
@@ -412,6 +434,7 @@ void parse_command(uint64_t key, struct timeval tv, uint command) {
         memcpy(query, buf, length);
         query[length] = '\0';
         t->tv = tv;
+        t->write = NULL;
         t->query = query;
         t->direction = INBOUND;
         t->next = NULL;
