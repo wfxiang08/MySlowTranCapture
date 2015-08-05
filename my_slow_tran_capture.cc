@@ -222,17 +222,13 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
                 printf("\n");
             } else {
                 printf(queries->query);
-                printf(KGRN "\n-----\n" KRESET);
+                printf("\n\n");
             }
             fflush(stdout);
         }
         queries = queries->next;
     }
-    
-    if (do_print) {
-        printf("---------------------------------------\n");
-    }
-    
+
     delete_queue(orig);
     trans.erase(key);
 }
