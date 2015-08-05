@@ -81,6 +81,7 @@ enum enum_server_command {
 };
 
 #define KNRM  "\x1B[0m"
+#define KGRAY  "\x1B[2;0m"
 #define KRED  "\x1B[31m"
 #define KGRN  "\x1B[32m"
 #define KYEL  "\x1B[33m"
@@ -137,9 +138,9 @@ void print_time(struct timeval tv) {
 
 void print_direction(bool direction) {
     if (direction == INBOUND) {
-        printf(KRED " IN " KRESET);
+        printf(KRED "IN  " KRESET);
     } else {
-        printf(KRED " OUT " KRESET);
+        printf(KRED "OUT " KRESET);
     }
 }
 
@@ -198,7 +199,7 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
         num_queries++;
         if (num_queries == 1) {
             timeval begin_time = queries->tv;
-            uint timediff = SUB_MSEC(tv, begin_time);
+            uint timediff = SUB_MSEC(tv, begin_time); // tv是最后一个包的时间， begin_time为第一个包的时间
             if (timediff > alert_millis) { // 如果超过报警的时间，则打印Log
                 do_print = 1;
                 char src[16], *addr;
@@ -222,15 +223,16 @@ void print_and_delete_queries(uint64_t key, queries_t *queries,
                 printf(queries->query);
                 printf("\n");
             } else {
-                printf("\n");
+                printf("\n\n" KGRAY);
                 printf(queries->query);
-                printf("\n");
+                printf("\n" KRESET);
             }
             fflush(stdout);
         }
         queries = queries->next;
     }
-    if (num_queries > 0) {
+    
+    if (do_print) {
         printf("---\n");
     }
     
